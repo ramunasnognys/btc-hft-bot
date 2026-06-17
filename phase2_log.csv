@@ -1,0 +1,4 @@
+iso_time,window_id,decision,reason,secs_left,price,strike,cushion,favorite,best_ask,spread,p_win,edge,sigma_per_s,vel_per_s
+2026-06-17T12:04:53Z,1781697600,SKIP,CUSHION<50,6.5,64757.48,64750.41,7.07,UP,,,,,,
+2026-06-17T12:09:53Z,1781697900,SKIP,CUSHION<50,6.2,64797.68,64766.56,31.12,UP,,,,,,
+2026-06-17T12:14:53Z,1781698200,SKIP,CUSHION<50,6.9,64790.3,64797.81,-7.51,DOWN,,,,,,

@@ -1,0 +1,6 @@
+# Polymarket BTC 5-min bot dependencies
+# Install:  python3 -m pip install -r requirements.txt
+polymarket-client==0.1.0b7
+requests>=2.31,<3
+python-dotenv>=1.0,<2
+websockets>=12,<13   # Chainlink price stream (btc_feed.py)
