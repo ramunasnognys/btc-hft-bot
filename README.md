@@ -69,8 +69,22 @@ phase2_log.csv    # Decision log output from Phase 2
 ```bash
 git clone https://github.com/ramunasnognys/btc-hft-bot.git
 cd btc-hft-bot
-python3 -m pip install -r requirements.txt
+
+# Create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate      # macOS / Linux
+# .venv\Scripts\activate       # Windows
+
+pip install -r requirements.txt
 ```
+
+To activate the venv in future sessions:
+
+```bash
+source .venv/bin/activate
+```
+
+Your prompt will show `(.venv)` when it's active. Use `deactivate` to exit it.
 
 ### Environment Variables
 
