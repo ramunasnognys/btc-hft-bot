@@ -1,8 +1,8 @@
 # BTC 5-Minute Late-Window Confirmation Bot
 
-> **Status: In Development — Phase 2 complete, Phase 3 (live execution) in progress**
+> **Status: Phase 3 complete — live execution ready (dry-run default, `--live` arms real orders)**
 
-A trading bot for Polymarket's [Bitcoin Up or Down 5-minute markets](https://polymarket.com). Instead of predicting BTC direction, it waits until the **final 30 seconds** of each window, confirms the current winner, and bets on it — only if a multi-guard evaluation stack approves the trade.
+A trading bot for Polymarket's [Bitcoin Up or Down 5-minute markets](https://polymarket.com). Instead of predicting BTC direction, it waits until ~120 seconds remain in each window, confirms the current winner, and bets on it — only if a multi-guard evaluation stack approves the trade.
 
 Settlement is determined by Polymarket's **Chainlink BTC/USD feed**, not spot prices. The bot subscribes directly to that same feed.
 
@@ -13,7 +13,7 @@ Settlement is determined by Polymarket's **Chainlink BTC/USD feed**, not spot pr
 Each 5-minute window has an opening (strike) price. At close, whichever side (Up or Down) the Chainlink price is on wins. The bot:
 
 1. Captures the opening strike price by watching the Chainlink stream across the window boundary
-2. Waits until 3–30 seconds remain
+2. Waits until ~120 seconds remain (the entry band the backtest supported)
 3. Runs a 9-guard evaluation stack before committing any money
 4. Buys the current favorite — only if all guards pass
 
@@ -26,12 +26,12 @@ Each 5-minute window has an opening (strike) price. At close, whichever side (Up
 | 1 | Feed | Chainlink tick age ≤ 3s |
 | 2 | Strike | Window open was observed (bot was connected before it opened) |
 | 3 | Favorite | Price clearly on one side of the strike (no tie) |
-| 4 | Cushion | \|price − strike\| ≥ $50 |
+| 4 | Cushion | \|price − strike\| ≥ $25 |
 | 5 | Momentum | Recent velocity not projecting a cross back over the strike |
-| 6 | Book | Spread ≤ 0.05, enough depth for the stake |
-| 7 | Price cap | Best ask ≤ 0.98 |
-| 8 | Edge | `est_win_prob − ask ≥ 0.05` |
-| 9 | Risk | Not already decided this window; daily loss cap not hit |
+| 6 | Book | Spread ≤ 0.07, enough depth for the stake |
+| 7 | Price cap | Best ask ≤ 0.97 |
+| 8 | Edge | `est_win_prob − ask ≥ 0.0` |
+| 9 | Risk | One position at a time; daily loss cap not hit |
 
 ---
 
@@ -40,10 +40,13 @@ Each 5-minute window has an opening (strike) price. At close, whichever side (Up
 ```
 btc_feed.py       # Phase 1 — Chainlink feed + strike capture (no trading)
 btc_strategy.py   # Phase 2 — Full decision engine in dry-run (no orders)
+btc_live.py       # Phase 3 — Live execution (dry-run default, --live for real orders)
 btc_bot.py        # Original prototype (Binance price + Polymarket, simpler logic)
-STRATEGY_PLAN.md  # Full architecture and design decisions
+setup_env.sh      # One-shot venv builder (run this first)
 requirements.txt  # Python dependencies
+STRATEGY_PLAN.md  # Full architecture and design decisions
 phase2_log.csv    # Decision log output from Phase 2
+trades_live.csv   # Trade log output from Phase 3
 ```
 
 ---
@@ -52,7 +55,7 @@ phase2_log.csv    # Decision log output from Phase 2
 
 - [x] **Phase 1** — Chainlink websocket feed, window tracking, strike capture, CSV logging
 - [x] **Phase 2** — Full guard stack + win-probability model, dry-run decisions logged
-- [ ] **Phase 3** — Live order execution (`--live` flag), position tracking, daily loss cap
+- [x] **Phase 3** — Live order execution (`--live` flag), position tracking, daily loss cap
 - [ ] **Phase 4** — Resolution tracking, realized P&L report, expectancy per trade
 
 ---
@@ -61,40 +64,25 @@ phase2_log.csv    # Decision log output from Phase 2
 
 ### Requirements
 
-- Python 3.10+
-- Polymarket account with a funded wallet
+- Python 3.11+
+- Polymarket account with a funded Polygon wallet
 
 ### Install
 
 ```bash
 git clone https://github.com/ramunasnognys/btc-hft-bot.git
 cd btc-hft-bot
-
-# Create and activate a virtual environment
-python3 -m venv .venv
-source .venv/bin/activate      # macOS / Linux
-# .venv\Scripts\activate       # Windows
-
-pip install -r requirements.txt
+bash setup_env.sh
 ```
 
-To activate the venv in future sessions:
-
-```bash
-source .venv/bin/activate
-```
-
-Your prompt will show `(.venv)` when it's active. Use `deactivate` to exit it.
+`setup_env.sh` finds the best available Python 3.11+, creates `.venv`, installs all dependencies, and verifies the SDK import. Safe to re-run.
 
 ### Environment Variables
 
 Create a `.env` file in the project root (never committed):
 
 ```env
-POLY_PRIVATE_KEY=0x...         # Your wallet private key
-POLY_RELAYER_KEY=...           # Optional: Polymarket relayer API key
-POLY_RELAYER_ADDRESS=0x...     # Optional: relayer wallet address
-BET_SIZE=1.0                   # USDC per trade (used by btc_bot.py)
+POLY_PRIVATE_KEY=0x...   # Your Polygon wallet private key (required)
 ```
 
 ---
@@ -103,23 +91,35 @@ BET_SIZE=1.0                   # USDC per trade (used by btc_bot.py)
 
 ### Phase 1 — Feed + strike capture (safe, no trades)
 
-Subscribes to the Chainlink BTC/USD stream and captures each window's opening price. Run this first to verify connectivity and confirm the data layer is working.
+Subscribes to the Chainlink BTC/USD stream and captures each window's opening price.
 
 ```bash
-python3 btc_feed.py
+./.venv/bin/python btc_feed.py
 ```
 
 Output: live status line + `phase1_log.csv`
 
 ### Phase 2 — Decision engine dry-run (safe, no trades)
 
-Runs the full guard stack for each window and logs `WOULD_BUY` or `SKIP (guard N)` with all the numbers behind the decision. No orders are placed.
+Runs the full guard stack and logs `WOULD_BUY` or `SKIP (reason)` for every window.
 
 ```bash
-python3 btc_strategy.py
+./.venv/bin/python btc_strategy.py
 ```
 
 Output: live decisions + `phase2_log.csv`
+
+### Phase 3 — Live execution
+
+```bash
+./.venv/bin/python btc_live.py              # dry-run: simulates fills, no SDK needed
+./.venv/bin/python btc_live.py --check      # connect to Polymarket, print balance, exit
+./.venv/bin/python btc_live.py --live       # REAL ORDERS — asks for typed confirmation
+```
+
+Output: live status + `trades_live.csv`
+
+> **Read the dry-run output for at least one session before arming `--live`.**
 
 ---
 
@@ -131,12 +131,13 @@ All tunable in the `CONFIG` block at the top of each file:
 |-----------|---------|-------------|
 | `STAKE_USDC` | `1.0` | USDC spent per trade |
 | `DAILY_LOSS_CAP` | `5.0` | Bot halts for the day after this net loss |
-| `MAX_ENTRY_SECONDS` | `30` | Start evaluating at ≤30s left |
-| `MIN_ENTRY_SECONDS` | `3` | Don't enter with <3s left |
-| `MIN_CUSHION_USD` | `50` | BTC must be ≥$50 past the strike |
-| `MIN_EDGE` | `0.05` | Minimum `est_win_prob − ask` |
-| `MAX_ASK` | `0.98` | Never pay more than 98¢ per share |
-| `MAX_SPREAD` | `0.05` | Skip illiquid or wide books |
+| `ENTRY_AT_SECS` | `120` | Evaluate when ≤120s remain |
+| `ENTRY_FLOOR_SECS` | `100` | Don't enter if already past this (missed the band) |
+| `MIN_CUSHION_USD` | `25` | BTC must be ≥$25 past the strike |
+| `MIN_EDGE` | `0.0` | Minimum `est_win_prob − ask` (0 = pure favorite buy) |
+| `MAX_ASK` | `0.97` | Never pay more than 97¢ per share |
+| `MAX_SPREAD` | `0.07` | Skip illiquid or wide books |
+| `SLIP_TOL` | `0.02` | Price cap = `best_ask + SLIP_TOL` |
 | `MAX_FEED_STALENESS_S` | `3.0` | Stand down if Chainlink tick is older than this |
 
 ---
@@ -147,6 +148,7 @@ All tunable in the `CONFIG` block at the top of each file:
 - **Late-window liquidity.** Spreads widen exactly when the bot enters. The fill-or-kill order protects price but means many signals won't fill.
 - **Strike basis risk.** The bot measures against the Chainlink feed (the same source Polymarket uses for settlement), which minimizes this risk — but if the feed drops, the bot stands down rather than guess.
 - **Windows joined mid-way are skipped.** If the bot wasn't connected before a window opened, it can't know the true strike and will not trade that window.
+- **Unproven out-of-sample.** The 120s entry timing is derived from backtest data. Live performance may differ.
 
 ---
 
