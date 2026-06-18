@@ -1,6 +1,6 @@
 # BTC 5-Minute Late-Window Confirmation Bot
 
-> **Status: Phase 3 complete — live execution ready (dry-run default, `--live` arms real orders)**
+> **Status: Phase 4 complete — full pipeline built (dry-run default, `--live` arms real orders, `report.py` scores results)**
 
 A trading bot for Polymarket's [Bitcoin Up or Down 5-minute markets](https://polymarket.com). Instead of predicting BTC direction, it waits until ~120 seconds remain in each window, confirms the current winner, and bets on it — only if a multi-guard evaluation stack approves the trade.
 
@@ -40,13 +40,16 @@ Each 5-minute window has an opening (strike) price. At close, whichever side (Up
 ```
 btc_feed.py       # Phase 1 — Chainlink feed + strike capture (no trading)
 btc_strategy.py   # Phase 2 — Full decision engine in dry-run (no orders)
+phase2b_probe.py  # Phase 2b — Liquidity probe across entry checkpoints (no orders)
 btc_live.py       # Phase 3 — Live execution (dry-run default, --live for real orders)
+report.py         # Phase 4 — Resolution tracking, P&L + expectancy report
 btc_bot.py        # Original prototype (Binance price + Polymarket, simpler logic)
 setup_env.sh      # One-shot venv builder (run this first)
 requirements.txt  # Python dependencies
 STRATEGY_PLAN.md  # Full architecture and design decisions
 phase2_log.csv    # Decision log output from Phase 2
-trades_live.csv   # Trade log output from Phase 3
+phase2b_probe.csv # Liquidity-probe log (input to report.py backtest)
+trades_live.csv   # Trade log output from Phase 3 (input to report.py)
 ```
 
 ---
@@ -56,7 +59,7 @@ trades_live.csv   # Trade log output from Phase 3
 - [x] **Phase 1** — Chainlink websocket feed, window tracking, strike capture, CSV logging
 - [x] **Phase 2** — Full guard stack + win-probability model, dry-run decisions logged
 - [x] **Phase 3** — Live order execution (`--live` flag), position tracking, daily loss cap
-- [ ] **Phase 4** — Resolution tracking, realized P&L report, expectancy per trade
+- [x] **Phase 4** — Resolution tracking, realized P&L report, expectancy per trade (`report.py`)
 
 ---
 
@@ -120,6 +123,20 @@ Output: live decisions + `phase2_log.csv`
 Output: live status + `trades_live.csv`
 
 > **Read the dry-run output for at least one session before arming `--live`.**
+
+### Phase 4 — Reporting & expectancy (safe, read-only)
+
+Scores the logs: realized win rate, net P&L, expectancy per trade, fill rate, and
+whether the realized win rate **beat the market's implied odds**. Auto-detects the
+file type (trade log vs probe log). Pure stdlib — runs with any Python.
+
+```bash
+python3 report.py                      # reads trades_live.csv
+python3 report.py phase2b_probe.csv    # backtests the liquidity-probe log
+```
+
+> Dry-run P&L is simulated (assumes fills at the price cap). Only `LIVE` rows
+> reflect real fills and slippage.
 
 ---
 
