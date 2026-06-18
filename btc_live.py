@@ -38,8 +38,8 @@ from btc_strategy import (
 )
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
-STAKE_USDC        = 1.0     # spend per trade
-DAILY_LOSS_CAP    = 5.0     # halt for the day after this much net realized loss
+STAKE_USDC        = 5.0     # spend per trade
+DAILY_LOSS_CAP    = 10.0     # halt for the day after this much net realized loss
 
 ENTRY_AT_SECS     = 120     # evaluate when secs_left first drops to <= this
 ENTRY_FLOOR_SECS  = 100     # ...but not if we're already past this (missed the band)
