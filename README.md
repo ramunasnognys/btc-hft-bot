@@ -129,8 +129,8 @@ All tunable in the `CONFIG` block at the top of each file:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `STAKE_USDC` | `1.0` | USDC spent per trade |
-| `DAILY_LOSS_CAP` | `5.0` | Bot halts for the day after this net loss |
+| `STAKE_USDC` | `5.0` | USDC spent per trade |
+| `DAILY_LOSS_CAP` | `10.0` | Bot halts for the day after this net loss |
 | `ENTRY_AT_SECS` | `120` | Evaluate when ≤120s remain |
 | `ENTRY_FLOOR_SECS` | `100` | Don't enter if already past this (missed the band) |
 | `MIN_CUSHION_USD` | `25` | BTC must be ≥$25 past the strike |
